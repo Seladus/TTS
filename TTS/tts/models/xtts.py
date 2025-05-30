@@ -61,7 +61,7 @@ def wav_to_mel_cloning(
     mel = mel_stft(wav)
     mel = torch.log(torch.clamp(mel, min=1e-5))
     if mel_norms is None:
-        mel_norms = torch.load(mel_norms_file, map_location=device)
+        mel_norms = torch.load(mel_norms_file, map_location=device, weights_only=False)
     mel = mel / mel_norms.unsqueeze(0).unsqueeze(-1)
     return mel
 
@@ -274,7 +274,7 @@ class Xtts(BaseTTS):
             for i in range(0, audio.shape[1], 22050 * chunk_length):
                 audio_chunk = audio[:, i : i + 22050 * chunk_length]
 
-                # if the chunk is too short ignore it 
+                # if the chunk is too short ignore it
                 if audio_chunk.size(-1) < 22050 * 0.33:
                     continue
 
@@ -410,12 +410,14 @@ class Xtts(BaseTTS):
         if speaker_id is not None:
             gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker_id].values()
             return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
-        settings.update({
-            "gpt_cond_len": config.gpt_cond_len,
-            "gpt_cond_chunk_len": config.gpt_cond_chunk_len,
-            "max_ref_len": config.max_ref_len,
-            "sound_norm_refs": config.sound_norm_refs,
-        })
+        settings.update(
+            {
+                "gpt_cond_len": config.gpt_cond_len,
+                "gpt_cond_chunk_len": config.gpt_cond_chunk_len,
+                "max_ref_len": config.max_ref_len,
+                "sound_norm_refs": config.sound_norm_refs,
+            }
+        )
         return self.full_inference(text, speaker_wav, language, **settings)
 
     @torch.inference_mode()

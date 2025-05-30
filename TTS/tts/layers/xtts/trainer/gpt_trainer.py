@@ -89,7 +89,7 @@ class GPTTrainer(BaseTTS):
 
         # load GPT if available
         if self.args.gpt_checkpoint:
-            gpt_checkpoint = torch.load(self.args.gpt_checkpoint, map_location=torch.device("cpu"))
+            gpt_checkpoint = torch.load(self.args.gpt_checkpoint, map_location=torch.device("cpu"), weights_only=False)
             # deal with coqui Trainer exported model
             if "model" in gpt_checkpoint.keys() and "config" in gpt_checkpoint.keys():
                 print("Coqui Trainer checkpoint detected! Converting it!")
@@ -182,7 +182,9 @@ class GPTTrainer(BaseTTS):
 
         self.dvae.eval()
         if self.args.dvae_checkpoint:
-            dvae_checkpoint = torch.load(self.args.dvae_checkpoint, map_location=torch.device("cpu"))
+            dvae_checkpoint = torch.load(
+                self.args.dvae_checkpoint, map_location=torch.device("cpu"), weights_only=False
+            )
             self.dvae.load_state_dict(dvae_checkpoint, strict=False)
             print(">> DVAE weights restored from:", self.args.dvae_checkpoint)
         else:
@@ -391,7 +393,7 @@ class GPTTrainer(BaseTTS):
                 loader = DataLoader(
                     dataset,
                     sampler=sampler,
-                    batch_size = config.eval_batch_size if is_eval else config.batch_size,
+                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
                     collate_fn=dataset.collate_fn,
                     num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
                     pin_memory=False,

@@ -167,7 +167,9 @@ def classify_audio_clip(clip, model_dir):
         kernel_size=5,
         distribute_zero_label=False,
     )
-    classifier.load_state_dict(torch.load(os.path.join(model_dir, "classifier.pth"), map_location=torch.device("cpu")))
+    classifier.load_state_dict(
+        torch.load(os.path.join(model_dir, "classifier.pth"), map_location=torch.device("cpu"), weights_only=False)
+    )
     clip = clip.cpu().unsqueeze(0)
     results = F.softmax(classifier(clip), dim=-1)
     return results[0][0]
@@ -483,8 +485,7 @@ class Tortoise(BaseTTS):
             self.rlg_auto = RandomLatentConverter(1024).eval()
             self.rlg_auto.load_state_dict(
                 torch.load(
-                    os.path.join(self.models_dir, "rlg_auto.pth"),
-                    map_location=torch.device("cpu"),
+                    os.path.join(self.models_dir, "rlg_auto.pth"), map_location=torch.device("cpu"), weights_only=False
                 )
             )
             self.rlg_diffusion = RandomLatentConverter(2048).eval()
@@ -492,6 +493,7 @@ class Tortoise(BaseTTS):
                 torch.load(
                     os.path.join(self.models_dir, "rlg_diffuser.pth"),
                     map_location=torch.device("cpu"),
+                    weights_only=False,
                 )
             )
         with torch.no_grad():
@@ -715,8 +717,9 @@ class Tortoise(BaseTTS):
             self.autoregressive = self.autoregressive.to(self.device)
             if verbose:
                 print("Generating autoregressive samples..")
-            with self.temporary_cuda(self.autoregressive) as autoregressive, torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=half
+            with (
+                self.temporary_cuda(self.autoregressive) as autoregressive,
+                torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half),
             ):
                 for b in tqdm(range(num_batches), disable=not verbose):
                     codes = autoregressive.inference_speech(
@@ -737,8 +740,9 @@ class Tortoise(BaseTTS):
             self.autoregressive_batch_size = orig_batch_size  # in the case of single_sample
 
             clip_results = []
-            with self.temporary_cuda(self.clvp) as clvp, torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=half
+            with (
+                self.temporary_cuda(self.clvp) as clvp,
+                torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half),
             ):
                 for batch in tqdm(samples, disable=not verbose):
                     for i in range(batch.shape[0]):
@@ -878,25 +882,22 @@ class Tortoise(BaseTTS):
 
         if os.path.exists(ar_path):
             # remove keys from the checkpoint that are not in the model
-            checkpoint = torch.load(ar_path, map_location=torch.device("cpu"))
+            checkpoint = torch.load(ar_path, map_location=torch.device("cpu"), weights_only=False)
 
             # strict set False
             # due to removed `bias` and `masked_bias` changes in Transformers
             self.autoregressive.load_state_dict(checkpoint, strict=False)
 
         if os.path.exists(diff_path):
-            self.diffusion.load_state_dict(torch.load(diff_path), strict=strict)
+            self.diffusion.load_state_dict(torch.load(diff_path, weights_only=False), strict=strict)
 
         if os.path.exists(clvp_path):
-            self.clvp.load_state_dict(torch.load(clvp_path), strict=strict)
+            self.clvp.load_state_dict(torch.load(clvp_path, weights_only=False), strict=strict)
 
         if os.path.exists(vocoder_checkpoint_path):
             self.vocoder.load_state_dict(
                 config.model_args.vocoder.value.optionally_index(
-                    torch.load(
-                        vocoder_checkpoint_path,
-                        map_location=torch.device("cpu"),
-                    )
+                    torch.load(vocoder_checkpoint_path, map_location=torch.device("cpu"), weights_only=False)
                 )
             )
 
